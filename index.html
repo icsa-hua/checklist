@@ -29,7 +29,7 @@
   .meta{color:var(--muted);font-size:14px;margin:0 0 16px}
   .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 0}
   .section{background:var(--card);padding:16px;margin:16px 0;border-radius:10px;border:1px solid #ddd;position:relative;break-inside:avoid}
-  .section h2{margin-top:0;color:var(--brand);display:flex;align-items:center;gap:10px}
+  .section h2{margin-top:0;color:var(--brand);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
   fieldset{border:none;margin:12px 0 14px;padding:0}
   legend{font-weight:bold;margin-bottom:6px;display:block}
   textarea{width:100%;min-height:92px;padding:8px;border:1px solid #ccc;border-radius:6px;resize:vertical}
@@ -39,26 +39,41 @@
   .pill label{font-size:12px;color:var(--muted)}
   select{padding:6px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;min-width:180px}
   .score-help{font-size:12px;color:var(--muted)}
-  .controls .score{min-width:240px}
+  .controls .score{min-width:260px}
+
+  /* Per-question disabled when N/A */
+  .question-na{
+    opacity:.65;
+    filter:saturate(.85);
+  }
+  .question-na textarea{
+    background:#f8fafc;
+  }
+
   button{background:var(--brand);color:#fff;padding:10px 20px;border:none;border-radius:8px;cursor:pointer}
   button:hover{background:var(--brand-2)}
   .secondary{background:#4b5563}
+
   .results{background:var(--brand);color:#fff;padding:16px;border-radius:10px;margin-top:20px}
   .results h2,.results h3{margin-top:0}
   .results ul{list-style:none;padding:0;margin:0}
   .results li{margin:6px 0;padding:6px;border-bottom:1px solid rgba(255,255,255,.35)}
+
   .matrix{border-collapse:collapse;margin-top:12px;width:100%;max-width:520px;background:#fff;border-radius:8px;overflow:hidden}
   .matrix th,.matrix td{border:1px solid #e5e7eb;padding:10px;text-align:center;font-size:14px;color:#111;font-weight:600}
+
   .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-weight:bold}
   .risk-low{background:var(--low);color:#062a10}
   .risk-mod{background:var(--moderate);color:#3f1f02}
   .risk-high{background:var(--high);color:#3b1603}
   .risk-critical{background:var(--critical);color:#fff}
+
   /* Section coloring by worst risk */
   .sec-low{border-left:8px solid var(--low);background:var(--low-bg)}
   .sec-mod{border-left:8px solid var(--moderate);background:var(--mod-bg)}
   .sec-high{border-left:8px solid var(--high);background:var(--high-bg)}
   .sec-critical{border-left:8px solid var(--critical);background:var(--crit-bg)}
+
   /* Print styles */
   @media print{
     body{background:#fff;margin:10mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -66,6 +81,7 @@
     .section{page-break-inside:avoid}
     a[href]:after{content:""}
   }
+
   /* Legend colors (dark text on light bg) */
   .matrix .risk-low{background:var(--low-bg)!important;color:#111!important}
   .matrix .risk-mod{background:var(--mod-bg)!important;color:#111!important}
@@ -82,7 +98,8 @@
 <p class="meta"><strong>3.5 ETHICAL SELF-ASSESSMENT CHECKLIST</strong> — Per question select a score:
   <em>0 = Not evident / absent</em>, <em>1 = Partially addressed / informal</em>,
   <em>2 = Documented and implemented</em>, <em>3 = Fully embedded, reviewed, and continuously improved</em>.
-  Also estimate <em>Likelihood</em> and <em>Severity</em>; the color-coded matrix maps to overall risk. Phases: Phase I (Design & Development), Phase II (Deployment & Operationalization), Phase III (Monitoring & Continuous Post-Market Improvement).
+  Also estimate <em>Likelihood</em> and <em>Severity</em>; the color-coded matrix maps to overall risk.
+  <br>Also <em>Not applicable (N/A)</em> option in the Score. If selected, the whole question is automatically ignored (disabled + excluded from score & risk).
 </p>
 
 <form id="form">
@@ -241,7 +258,7 @@ const SECTIONS = [
   }
 ];
 
-/* ======================= RISK & SCORING ======================= */
+/* RISK & SCORING  */
 const RISK_MAP = {
   L: { L:{label:'Low Risk', cls:'risk-low', weight:1},
        M:{label:'Moderate Risk', cls:'risk-mod', weight:2},
@@ -255,6 +272,7 @@ const RISK_MAP = {
 };
 const SEC_CLASS_BY_WEIGHT = {1:'sec-low', 2:'sec-mod', 3:'sec-high', 4:'sec-critical'};
 
+/*  BUILD FORM */
 (function buildForm(){
   const mount = document.getElementById('sections');
   let globalIndex = 0;
@@ -271,7 +289,9 @@ const SEC_CLASS_BY_WEIGHT = {1:'sec-low', 2:'sec-mod', 3:'sec-high', 4:'sec-crit
 
     sec.questions.forEach((q, i) => {
       globalIndex += 1;
+
       const fs = document.createElement('fieldset');
+      fs.dataset.qid = String(globalIndex);
 
       const lg = document.createElement('legend');
       lg.textContent = `${i+1}) ${q}`;
@@ -288,12 +308,14 @@ const SEC_CLASS_BY_WEIGHT = {1:'sec-low', 2:'sec-mod', 3:'sec-high', 4:'sec-crit
       const controls = document.createElement('div');
       controls.className = 'controls';
 
+      // Score (NOW includes Not Applicable option)
       const pillScore = document.createElement('div');
       pillScore.className = 'pill';
       pillScore.innerHTML = `
         <label>Score (0–3)</label>
         <select class="score" name="s${globalIndex}">
           <option value="">—</option>
+          <option value="NA">N/A — Not applicable</option>
           <option value="0">0 — Not evident / absent</option>
           <option value="1">1 — Partially addressed / informal</option>
           <option value="2">2 — Documented and implemented</option>
@@ -301,6 +323,7 @@ const SEC_CLASS_BY_WEIGHT = {1:'sec-low', 2:'sec-mod', 3:'sec-high', 4:'sec-crit
         </select>`;
       controls.appendChild(pillScore);
 
+      // Likelihood
       const pillLik = document.createElement('div');
       pillLik.className = 'pill';
       pillLik.innerHTML = `
@@ -313,6 +336,7 @@ const SEC_CLASS_BY_WEIGHT = {1:'sec-low', 2:'sec-mod', 3:'sec-high', 4:'sec-crit
         </select>`;
       controls.appendChild(pillLik);
 
+      // Severity
       const pillSev = document.createElement('div');
       pillSev.className = 'pill';
       pillSev.innerHTML = `
@@ -331,17 +355,66 @@ const SEC_CLASS_BY_WEIGHT = {1:'sec-low', 2:'sec-mod', 3:'sec-high', 4:'sec-crit
       if(i === 0){
         const hint = document.createElement('div');
         hint.className = 'score-help';
-        hint.textContent = 'Rubric: 3 = fully embedded & continuously improved; 2 = documented & implemented; 1 = partially / informal; 0 = absent.';
+        hint.textContent = 'Rubric: 3 = fully embedded & continuously improved; 2 = documented & implemented; 1 = partially / informal; 0 = absent. Select N/A to ignore the whole question.';
         fs.appendChild(hint);
       }
 
       wrapper.appendChild(fs);
+
+      // Auto-ignore whole question when Score = N/A
+      const scoreSelect = pillScore.querySelector('select');
+      scoreSelect.addEventListener('change', () => {
+        const isNA = scoreSelect.value === 'NA';
+        applyNAFromScore(fs, isNA);
+      });
     });
 
     mount.appendChild(wrapper);
   });
 })();
 
+/*  "IGNORE QUESTION" WHEN SCORE = N/A  */
+function applyNAFromScore(fieldset, isNA){
+  const qid = fieldset.dataset.qid;
+
+  const ta = fieldset.querySelector(`textarea[name="q${qid}"]`);
+  const scoreSel = fieldset.querySelector(`select[name="s${qid}"]`);
+  const likSel = fieldset.querySelector(`select[name="l${qid}"]`);
+  const sevSel = fieldset.querySelector(`select[name="v${qid}"]`);
+
+  // Per-question badge (risk label)
+  let badge = fieldset.querySelector('.badge');
+  if(!badge){
+    badge = document.createElement('span');
+    badge.className = 'badge';
+    fieldset.appendChild(badge);
+  }
+
+  if(isNA){
+    // Disable + clear everything except keep Score = NA visible
+    fieldset.classList.add('question-na');
+
+    if(ta){ ta.value = ''; ta.disabled = true; }
+    if(likSel){ likSel.value = ''; likSel.disabled = true; }
+    if(sevSel){ sevSel.value = ''; sevSel.disabled = true; }
+
+    badge.className = 'badge';
+    badge.textContent = 'N/A';
+  }else{
+    // Re-enable
+    fieldset.classList.remove('question-na');
+
+    if(ta){ ta.disabled = false; }
+    if(likSel){ likSel.disabled = false; }
+    if(sevSel){ sevSel.disabled = false; }
+
+    // Reset badge to default; will be recalculated when user clicks Calculate
+    badge.className = 'badge';
+    badge.textContent = '—';
+  }
+}
+
+/* ======================= RISK & SCORING ======================= */
 function riskCell(lik, sev){
   if(!lik || !sev) return {label:'—', cls:'', weight:0};
   return (RISK_MAP[lik] && RISK_MAP[lik][sev]) ? RISK_MAP[lik][sev] : {label:'—', cls:'', weight:0};
@@ -350,31 +423,72 @@ function riskCell(lik, sev){
 function calculateScores(){
   const results = {};
   let grandScore = 0, grandMax = 0;
-  let riskCounts = { low:0, mod:0, high:0, critical:0, missing:0 };
+
+  // Added na counter (questions ignored)
+  let riskCounts = { low:0, mod:0, high:0, critical:0, missing:0, na:0 };
 
   document.querySelectorAll(".section").forEach(section => {
     const key = section.dataset.key;
-    const qMax = parseInt(section.dataset.max,10) || 0;
 
-    const scores = Array.from(section.querySelectorAll("select.score"))
-      .map(sel => parseInt(sel.value,10))
-      .filter(v => !isNaN(v));
+    const fieldsets = Array.from(section.querySelectorAll("fieldset"));
 
-    const sectionScore = scores.reduce((a,b)=>a+b,0);
-    const sectionMax = qMax * 3;
+    // Applicable questions = Score != NA
+    const applicable = fieldsets.filter(fs => {
+      const qid = fs.dataset.qid;
+      const scoreSel = fs.querySelector(`select[name="s${qid}"]`);
+      return !(scoreSel && scoreSel.value === 'NA');
+    });
+
+    // Section score: numeric only (0-3). Max based on applicable count.
+    const numericScores = applicable
+      .map(fs => {
+        const qid = fs.dataset.qid;
+        const sel = fs.querySelector(`select[name="s${qid}"]`);
+        if(!sel || sel.value === "") return null;
+        const n = parseInt(sel.value,10);
+        return isNaN(n) ? null : n;
+      })
+      .filter(v => v !== null);
+
+    const sectionScore = numericScores.reduce((a,b)=>a+b,0);
+    const sectionMax = applicable.length * 3;
+
     results[key] = { score: sectionScore, max: sectionMax };
     grandScore += sectionScore;
     grandMax   += sectionMax;
 
+    // Worst risk in section (only among applicable)
     let worstWeight = 0, worstLabel = '—', worstCls = '';
-    section.querySelectorAll("fieldset").forEach((fs) => {
-      const likSel = fs.querySelector(`select[name^="l"]`);
-      const sevSel = fs.querySelector(`select[name^="v"]`);
+
+    fieldsets.forEach(fs => {
+      const qid = fs.dataset.qid;
+      const scoreSel = fs.querySelector(`select[name="s${qid}"]`);
+      const isNA = scoreSel && scoreSel.value === 'NA';
+
+      // Per-question risk badge
+      let badge = fs.querySelector('.badge');
+      if(!badge){
+        badge = document.createElement('span');
+        badge.className = 'badge';
+        fs.appendChild(badge);
+      }
+
+      if(isNA){
+        riskCounts.na++;
+        badge.className = 'badge';
+        badge.textContent = 'N/A';
+        return;
+      }
+
+      const likSel = fs.querySelector(`select[name="l${qid}"]`);
+      const sevSel = fs.querySelector(`select[name="v${qid}"]`);
       const lik = likSel ? likSel.value : '';
       const sev = sevSel ? sevSel.value : '';
       const cell = riskCell(lik, sev);
 
-      if(cell.weight > worstWeight){ worstWeight = cell.weight; worstLabel = cell.label; worstCls = cell.cls; }
+      if(cell.weight > worstWeight){
+        worstWeight = cell.weight; worstLabel = cell.label; worstCls = cell.cls;
+      }
 
       if(cell.cls==='risk-low') riskCounts.low++;
       else if(cell.cls==='risk-mod') riskCounts.mod++;
@@ -382,12 +496,6 @@ function calculateScores(){
       else if(cell.cls==='risk-critical') riskCounts.critical++;
       else riskCounts.missing++;
 
-      let badge = fs.querySelector('.badge');
-      if(!badge){
-        badge = document.createElement('span');
-        badge.className = 'badge';
-        fs.appendChild(badge);
-      }
       badge.className = 'badge ' + (cell.cls || '');
       badge.textContent = cell.label || '—';
     });
@@ -399,7 +507,7 @@ function calculateScores(){
     if(headerBadge){
       headerBadge.className = 'badge ' + (worstCls || '');
       headerBadge.textContent = worstLabel || '—';
-      headerBadge.style.display = worstLabel && worstLabel!=='—' ? 'inline-block' : 'none';
+      headerBadge.style.display = (worstLabel && worstLabel!=='—') ? 'inline-block' : 'none';
     }
   });
 
@@ -408,6 +516,7 @@ function calculateScores(){
     const pct = v.max ? Math.round((v.score/v.max)*100) : 0;
     html += `<li><strong>${k}:</strong> ${v.score} / ${v.max} (${pct}%)</li>`;
   });
+
   const totalPct = grandMax ? Math.round((grandScore/grandMax)*100) : 0;
   html += `</ul><h3>Total Score: ${grandScore} / ${grandMax} (${totalPct}%)</h3>`;
 
@@ -417,6 +526,7 @@ function calculateScores(){
     <li><span class="badge risk-mod">Moderate</span> ${riskCounts.mod}</li>
     <li><span class="badge risk-high">High</span> ${riskCounts.high}</li>
     <li><span class="badge risk-critical">Critical</span> ${riskCounts.critical}</li>
+    <li>N/A (ignored): ${riskCounts.na}</li>
     <li>Missing/Unrated: ${riskCounts.missing}</li>
   </ul>`;
 
